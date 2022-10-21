@@ -2,6 +2,7 @@
 #include <cannon.h>
 #include <ros.h>
 #include <std_srvs/SetBool.h>
+#include "../.pio/libdeps/megaatmega2560/Rosserial Arduino Library/src/std_srvs/Empty.h"
 
 //#define USE_USBCON
 
@@ -16,10 +17,12 @@
 #define ANGLE_SENSOR_PIN A2
 
 ros::NodeHandle node_handle;
-cannon::cannon *cannon1;
-cannon::cannon *cannon2;
+cannon *cannon1;
+cannon *cannon2;
 
-cannon::cannon* cannons[2];
+cannon* cannons[2];
+
+uint32_t timeouts = 0;
 
 // Create a publisher to publish the solenoid states
 std_msgs::UInt8 solenoid_msg;
@@ -45,10 +48,10 @@ ros::ServiceServer<std_srvs::Empty::Request, std_srvs::Empty::Response> fire_srv
 
 void setup() {
 // write your initialization code here
-    cannon1 = new cannon::cannon(1, TANK_0_FILL_SOLENOID_PIN,
+    cannon1 = new cannon(1, TANK_0_FILL_SOLENOID_PIN,
                                  TANK_0_FIRE_SOLENOID_PIN, TANK_0_PRESSURE_SENSOR_PIN,
                                  "can0/set_pressure", "can0/set_state");
-    cannon2 = new cannon::cannon(5, 6, 7, 8,
+    cannon2 = new cannon(5, 6, 7, 8,
                                  "can1/set_pressure", "can1/set_state");
     cannons[0] = cannon1;
     cannons[1] = cannon2;
@@ -59,8 +62,62 @@ void setup() {
     node_handle.advertise(solenoid_pub);
     node_handle.advertise(angle_pub);
     node_handle.advertiseService(fire_srv);
+    node_handle.setSpinTimeout(50);
 
 }
+
+bool is_supply_in_use(){
+    for (auto &cannon : cannons) {
+        if (cannon->get_state() == cannon::cannon_states::PRESSURIZING) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool check_for_venting(){
+    for (auto &cannon : cannons) {
+        if (cannon->get_state() == cannon::cannon_states::VENTING) {
+            for (auto &other_cannon : cannons) {
+                if (other_cannon->get_state() != cannon::cannon_states::VENTING) {
+                    other_cannon->set_state(cannon::cannon_states::WAITING_FOR_PRESSURE);
+                }
+            }
+            digitalWrite(SUPPLY_SOLENOID_PIN, LOW);
+            digitalWrite(VENT_SOLENOID_PIN, HIGH);
+            return true;
+        }
+    }
+    return false;
+}
+
+void cannon_state_loop(){
+    for (auto &cannon: cannons){
+        cannon->read_pressure();
+    }
+    // Check if any cannons are venting, as this is the highest priority action it is checked first
+    if (check_for_venting()){
+        return;
+    }
+    // Check if any cannons are pressurizing, if so, turn on the supply solenoid
+    if (is_supply_in_use()){
+        digitalWrite(SUPPLY_SOLENOID_PIN, HIGH);
+        digitalWrite(VENT_SOLENOID_PIN, LOW);
+    } else {
+        digitalWrite(SUPPLY_SOLENOID_PIN, LOW);
+        digitalWrite(VENT_SOLENOID_PIN, LOW);
+    }
+    // Check if any cannons are waiting for pressure, if so, also check if the supply is not in use
+    for (auto &cannon : cannons) {
+        if (cannon->get_state() == cannon::cannon_states::WAITING_FOR_PRESSURE) {
+            if (!is_supply_in_use()) {
+                cannon->set_state(cannon::cannon_states::PRESSURIZING);
+            }
+        }
+    }
+
+}
+
 
 void loop() {
 // write your code here
@@ -79,15 +136,41 @@ void loop() {
     angle_msg.data = analogRead(ANGLE_SENSOR_PIN);
     angle_pub.publish(&angle_msg);
 
+    cannon_state_loop();
 
-//    for (auto & cannon : cannons) {
-//        cannon->publish_data();
-//    }
+    for (auto &cannon : cannons) {
+        cannon->publish_state();
+    }
 
     // Toggle the on-board LED every loop to indicate that the board is running
     digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
 
-    node_handle.spinOnce();
-    // The controllers update rate is 30Hz
-    delay(33);
+
+    uint8_t code = node_handle.spinOnce(); // Check ROSCore for new messages (Timeout of 50ms)
+    switch(code){
+        case ros::SPIN_OK:
+            timeouts = 0;
+            break;
+        case ros::SPIN_TIMEOUT:
+            timeouts++;
+            if (timeouts > 40) {
+                // If we have timed out 20 times in a row, ESTOP the cannons
+                for (auto &cannon: cannons) {
+                    cannon->set_state(cannon::cannon_states::ESTOPPED);
+                }
+            }
+            break;
+        case ros::SPIN_ERR:
+            // If we get an error ESTOP the cannons and then reset the board 5 seconds later
+            for (auto &cannon : cannons) {
+                cannon->set_state(cannon::cannon_states::ESTOPPED);
+            }
+            break;
+        default:
+            // Any other code is unknown, so ESTOP the cannons
+            for (auto &cannon : cannons) {
+                cannon->set_state(cannon::cannon_states::ESTOPPED);
+            }
+            break;
+    }
 }
