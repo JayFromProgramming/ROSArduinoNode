@@ -125,7 +125,7 @@ void cannon_state_loop(){
 
 
 void loop() {
-// write your code here
+// write your spinCode here
     uint32_t now = millis();
     // Read the solenoid states
     solenoid_msg.data = 0;
@@ -151,8 +151,8 @@ void loop() {
     digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
 
 
-    int code = node_handle.spinOnce(); // Check ROSCore for new messages (Timeout of 50ms)
-    switch(code){
+    int spinCode = node_handle.spinOnce(); // Check ROSCore for new messages (Timeout of 50ms)
+    switch(spinCode){
         case ros::SPIN_OK:
             timeouts = 0;
             break;
@@ -172,16 +172,14 @@ void loop() {
             }
             break;
         default:
-            // Any other code is unknown, so ESTOP the cannons
+            // Any other spinCode is unknown, so ESTOP the cannons
             for (auto &cannon : cannons) {
                 cannon->set_state(cannon::cannon_states::ESTOPPED);
             }
             break;
     }
-//    if (millis() - now > 50) {
-//        // If we have been running for more than 1 second, reset the board
-//        // This is to prevent the board from getting stuck in a loop
-//
-//    }else delay(50 - (millis() - now));
-    delay(50);
+    // Throttle the update rate to 20Hz
+    while (millis() - now < 50) {
+        delay(1);
+    }
 }

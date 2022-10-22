@@ -33,6 +33,7 @@ void cannon::read_pressure(){
     // If the voltage is below .5V, the sensor is not connected
     if (raw_voltage < 500) {
         this->set_state(cannon_states::ESTOPPED);
+        this->pressure = -1.0;
         return;
     }
 
@@ -69,10 +70,10 @@ void cannon::set_state_cb(const std_msgs::UInt8 &msg) {
             this->input_cleared = true;
             break;
         case cannon_actions::VENT:
-            this->initiate_vent();
+            this->set_state(cannon_states::VENTING);
             break;
         case cannon_actions::FILL:
-            this->state = cannon_states::PRESSURIZING;
+            this->set_state(cannon_states::PRESSURIZING);
             break;
         case cannon_actions::SET_AUTO:
             this->in_auto = true;
@@ -81,11 +82,11 @@ void cannon::set_state_cb(const std_msgs::UInt8 &msg) {
             this->in_auto = false;
             break;
         case cannon_actions::ARM:
-            this->state = cannon_states::ARMED;
+            this->set_state(cannon_states::ARMED);
             break;
         case cannon_actions::DISARM:
         default:
-            this->state = cannon_states::IDLE;
+            this->set_state(cannon_states::IDLE);
             break;
     }
     this->input_cleared = false; // Reset the input cleared flag
@@ -149,12 +150,22 @@ void cannon::set_state(cannon::cannon_states new_state) {
     if (cannon_states::ESTOPPED == this->state) return;
 
     // Open the fill valve
-    if (cannon_states::PRESSURIZING == new_state) digitalWrite(this->in_solenoid_pin, HIGH);
-    if (cannon_states::ARMED == new_state) {
-        digitalWrite(this->in_solenoid_pin, LOW);
-        digitalWrite(this->shot_solenoid_pin, LOW);
-    }
 
+    switch (new_state){
+        case cannon_states::ESTOPPED:
+        case cannon_states::VENTING:
+            this->initiate_vent();
+            break;
+        case cannon_states::PRESSURIZING:
+            digitalWrite(this->in_solenoid_pin, HIGH);
+            break;
+        case cannon_states::ARMED:
+            digitalWrite(this->in_solenoid_pin, LOW);
+            digitalWrite(this->shot_solenoid_pin, LOW);
+            break;
+        default:
+            break;
+    }
 
     this->state = new_state;
 }

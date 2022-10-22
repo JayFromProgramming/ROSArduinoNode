@@ -73,7 +73,7 @@ private:
     ros::Publisher pressure_pub_;
 
     // Declare tuning parameters
-    float max_pressure{1000.0f};  // The maximum pressure the cannon can reach
+    float max_pressure{110.0f};  // The maximum pressure the cannon can reach
     float min_pressure{0.0f};  // The minimum pressure the cannon can reach
     float pressure_deadband{0.5f};  // The threshold for the pressure to be considered "stable"
 
