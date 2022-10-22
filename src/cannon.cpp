@@ -9,8 +9,8 @@
 
 
 void cannon::init(ros::NodeHandle *node_ptr) {
-    node_ptr->advertise(this->state_pub);
-    node_ptr->advertise(this->pressure_pub);
+    node_ptr->advertise(this->state_pub_);
+    node_ptr->advertise(this->pressure_pub_);
     node_ptr->subscribe(this->set_pressure_sub_);
     node_ptr->subscribe(this->set_state_sub_);
 }
@@ -28,15 +28,22 @@ void cannon::initiate_vent(){
 }
 
 void cannon::read_pressure(){
-    float raw_data = analogRead(this->in_sensor_pin);
-    this->pressure = (raw_data / 1024.0f) * 5.0;
+    float raw_voltage = analogRead(this->in_sensor_pin);
+
+    // If the voltage is below .5V, the sensor is not connected
+    if (raw_voltage < 500) {
+        this->set_state(cannon_states::ESTOPPED);
+        return;
+    }
+
+    this->pressure = (raw_voltage / 1024.0f) * 5.0;
 }
 
 void cannon::publish_state(){
     this->state_msg.data = static_cast<uint8_t>(this->state);
-    this->state_pub.publish(&this->state_msg);
+    this->state_pub_.publish(&this->state_msg);
     this->pressure_msg.data = this->pressure;
-    this->pressure_pub.publish(&this->pressure_msg);
+    this->pressure_pub_.publish(&this->pressure_msg);
 }
 
 
@@ -55,7 +62,7 @@ void cannon::set_state_cb(const std_msgs::UInt8 &msg) {
     // If the cannon has not been cleared, do not accept another message
     if (action != cannon_actions::CLEAR && !this->input_cleared) {
         return;
-    } else this->input_cleared = false;
+    }
     if (this->state == cannon_states::ESTOPPED) return; // If the cannon is estopped, do not accept any messages
     switch (action) {
         case cannon_actions::CLEAR:
@@ -77,25 +84,11 @@ void cannon::set_state_cb(const std_msgs::UInt8 &msg) {
             this->state = cannon_states::ARMED;
             break;
         case cannon_actions::DISARM:
-            this->state = cannon_states::IDLE;
-            break;
-        case cannon_actions::FIRE:
-            this->state = cannon_states::FIRING;
-            break;
         default:
             this->state = cannon_states::IDLE;
             break;
     }
-}
-
-bool cannon::is_venting() {
-    if (this->venting){
-        if (this->pressure < this->min_pressure){
-            this->venting = false;
-            return false;
-        }
-    }
-    return false;
+    this->input_cleared = false; // Reset the input cleared flag
 }
 
 bool cannon::needs_air() {
@@ -105,23 +98,13 @@ bool cannon::needs_air() {
             return true;
         } else return false;
     } else{
-        if (this->pressure > this->set_pressure + this->pressure_deadband){
+        if (this->pressure > this->set_pressure){
             this->filled = true;
             return false;
         } else return true;
     }
 }
 
-void cannon::start_pressurizing() {
-    digitalWrite(this->in_solenoid_pin, HIGH);
-    this->filling = true;
-    this->state = cannon_states::PRESSURIZING;
-}
-
-void cannon::stop_pressurizing() {
-    digitalWrite(this->in_solenoid_pin, LOW);
-    this->filling = false;
-}
 
 void cannon::update() {
 
@@ -136,19 +119,20 @@ void cannon::update() {
             break;
         case cannon_states::PRESSURIZING:
             if (!this->needs_air()) {
-                this->stop_pressurizing();
-                this->state = cannon_states::READY;
+                this->set_state(cannon_states::READY);
             }
             break;
         case cannon_states::READY:
             if (this->needs_air()) this->state = cannon_states::WAITING_FOR_PRESSURE;
             break;
         case cannon_states::ARMED:
+            break;
         case cannon_states::FIRING:
+            if(this->shot_timer < millis()){
+                this->set_state(cannon_states::IDLE);
+            }
             break;
     }
-
-
 }
 
 cannon::cannon_states cannon::get_state() {
@@ -159,13 +143,18 @@ void cannon::fire() {
     if (this->state != cannon_states::ARMED) return;
     this->state = cannon_states::FIRING;
     digitalWrite(this->shot_solenoid_pin, HIGH);
-    delay(100);
-    digitalWrite(this->shot_solenoid_pin, LOW);
-    this->state = cannon_states::IDLE;
 }
 
 void cannon::set_state(cannon::cannon_states new_state) {
     if (cannon_states::ESTOPPED == this->state) return;
+
+    // Open the fill valve
+    if (cannon_states::PRESSURIZING == new_state) digitalWrite(this->in_solenoid_pin, HIGH);
+    if (cannon_states::ARMED == new_state) {
+        digitalWrite(this->in_solenoid_pin, LOW);
+        digitalWrite(this->shot_solenoid_pin, LOW);
+    }
+
 
     this->state = new_state;
 }

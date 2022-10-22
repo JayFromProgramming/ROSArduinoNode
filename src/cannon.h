@@ -55,7 +55,6 @@ public:
         FILL = 4, // Fill the cannon
         ARM = 5, // Arm the cannon
         DISARM = 6, // Disarm the cannon
-        FIRE = 7, // Fire the cannon
     };
 
     void set_pressure_cb(const std_msgs::Float32 &msg);
@@ -68,10 +67,10 @@ private:
 
     std_msgs::UInt8 state_msg;  // The message to publish the state of the cannon
 //        ros::Publisher state_pub = ros::Publisher("state", &state_msg);  // The publisher for the state of the cannon
-    ros::Publisher state_pub = ros::Publisher("state", &state_msg);  // The publisher for the state of the cannon
+    ros::Publisher state_pub_;  // The publisher for the state of the cannon
 
     std_msgs::Float32 pressure_msg;  // The message to publish the pressure of the cannon
-    ros::Publisher pressure_pub = ros::Publisher("pressure", &pressure_msg);
+    ros::Publisher pressure_pub_;
 
     // Declare tuning parameters
     float max_pressure{1000.0f};  // The maximum pressure the cannon can reach
@@ -84,10 +83,8 @@ private:
 
     bool input_cleared;  // Whether the input has been cleared and can accept another message
     bool in_auto = false;  // Whether the cannon is in auto mode or not
-    bool filling = false;  // Whether the cannon is filling or not
     bool filled  = false;  // Whether the cannon is filled or not
-    bool venting = false;  // Whether the cannon is venting or not
-    bool armed = false;  // Whether the cannon is armed or not
+    uint32_t shot_timer = 0;  // The timer for the shot
     cannon_states state = cannon_states::IDLE;  // The current state of the cannon
 
     // The subscriber for the pressure to set the cannon to
@@ -103,9 +100,11 @@ public:
 
     cannon(uint8_t id, uint8_t in_solenoid_pin,
            uint8_t shot_solenoid_pin, uint8_t in_sensor_pin,
-           const char* pressure_name, const char* state_name):
+           const char* pressure_name, const char* state_name, const char* set_pressure_name, const char* set_state_name):
             set_pressure_sub_(pressure_name, &cannon::set_pressure_cb, this),
-            set_state_sub_(state_name, &cannon::set_state_cb, this) {
+            set_state_sub_(state_name, &cannon::set_state_cb, this),
+            state_pub_(set_state_name, &state_msg),
+            pressure_pub_(set_pressure_name, &pressure_msg){
             this->id = id;
             this->in_solenoid_pin = in_solenoid_pin;
             this->shot_solenoid_pin = shot_solenoid_pin;
@@ -138,20 +137,12 @@ public:
      */
     void initiate_vent();
 
-    /**
-     * @return True if the cannon is venting, false otherwise
-     */
-    bool is_venting();
 
     /**
      * Indicates if the cannon needs air
      * @returns True if the cannon needs air, false otherwise
      */
     bool needs_air();
-
-    void start_pressurizing();
-
-    void stop_pressurizing();
 
     void fire();
 

@@ -36,23 +36,25 @@ ros::Publisher angle_pub = ros::Publisher("cannon/angle", &angle_msg);
  * @param req The request message, which is empty
  * @param res The response message, which is empty
  */
-void fire_cb(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res) {
-    for (auto &cannon : cannons) {
-        cannon->fire();
-    }
-}
+//void fire_cb(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res) {
+//    for (auto &cannon : cannons) {
+//        cannon->fire();
+//    }
+//}
+//
+//ros::ServiceServer<std_srvs::Empty::Request, std_srvs::Empty::Response> fire_srv("cannons/fire", &fire_cb);
 
-ros::ServiceServer<std_srvs::Empty::Request, std_srvs::Empty::Response> fire_srv("cannon/fire", &fire_cb);
-
-
+// rosrun rosserial_python serial_node.py _port:=/dev/ttyACM0
 
 void setup() {
 // write your initialization code here
     cannon1 = new cannon(1, TANK_0_FILL_SOLENOID_PIN,
                                  TANK_0_FIRE_SOLENOID_PIN, TANK_0_PRESSURE_SENSOR_PIN,
-                                 "can0/set_pressure", "can0/set_state");
+                                 "can0/set_pressure", "can0/set_state",
+                                 "can0/state", "can0/pressure");
     cannon2 = new cannon(5, 6, 7, 8,
-                                 "can1/set_pressure", "can1/set_state");
+                                 "can1/set_pressure", "can1/set_state",
+                                 "can1/state", "can1/pressure");
     cannons[0] = cannon1;
     cannons[1] = cannon2;
     cannon1->init(&node_handle);
@@ -61,7 +63,7 @@ void setup() {
     node_handle.initNode();
     node_handle.advertise(solenoid_pub);
     node_handle.advertise(angle_pub);
-    node_handle.advertiseService(fire_srv);
+//    node_handle.advertiseService(fire_srv);
     node_handle.setSpinTimeout(50);
 
 }
@@ -77,27 +79,30 @@ bool is_supply_in_use(){
 
 bool check_for_venting(){
     for (auto &cannon : cannons) {
-        if (cannon->get_state() == cannon::cannon_states::VENTING) {
-            for (auto &other_cannon : cannons) {
-                if (other_cannon->get_state() != cannon::cannon_states::VENTING) {
+        if (cannon->get_state() == cannon::cannon_states::VENTING ||
+            cannon->get_state() == cannon::cannon_states::ESTOPPED) {
+            for (auto &other_cannon : cannons) { // Stop all cannons from filling
+                if (other_cannon->get_state() != cannon::cannon_states::VENTING ||
+                    other_cannon->get_state() != cannon::cannon_states::ESTOPPED) {
                     other_cannon->set_state(cannon::cannon_states::WAITING_FOR_PRESSURE);
                 }
             }
-            digitalWrite(SUPPLY_SOLENOID_PIN, LOW);
-            digitalWrite(VENT_SOLENOID_PIN, HIGH);
-            return true;
+            digitalWrite(SUPPLY_SOLENOID_PIN, LOW); // Close the supply solenoid
+            digitalWrite(VENT_SOLENOID_PIN, HIGH); // Open the vent solenoid
+            return true; // Return true if we are venting
         }
     }
-    return false;
+    return false; // No cannons are venting
 }
 
 void cannon_state_loop(){
     for (auto &cannon: cannons){
         cannon->read_pressure();
+        cannon->update();
     }
     // Check if any cannons are venting, as this is the highest priority action it is checked first
     if (check_for_venting()){
-        return;
+        return; // If we are venting, we shouldn't delegate the air supply to any cannons
     }
     // Check if any cannons are pressurizing, if so, turn on the supply solenoid
     if (is_supply_in_use()){
@@ -121,7 +126,7 @@ void cannon_state_loop(){
 
 void loop() {
 // write your code here
-
+    uint32_t now = millis();
     // Read the solenoid states
     solenoid_msg.data = 0;
     solenoid_msg.data |= digitalRead(SUPPLY_SOLENOID_PIN) << 0;
@@ -146,7 +151,7 @@ void loop() {
     digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
 
 
-    uint8_t code = node_handle.spinOnce(); // Check ROSCore for new messages (Timeout of 50ms)
+    int code = node_handle.spinOnce(); // Check ROSCore for new messages (Timeout of 50ms)
     switch(code){
         case ros::SPIN_OK:
             timeouts = 0;
@@ -173,4 +178,10 @@ void loop() {
             }
             break;
     }
+//    if (millis() - now > 50) {
+//        // If we have been running for more than 1 second, reset the board
+//        // This is to prevent the board from getting stuck in a loop
+//
+//    }else delay(50 - (millis() - now));
+    delay(50);
 }
