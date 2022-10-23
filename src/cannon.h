@@ -36,7 +36,8 @@ using rosserial_arduino::Test;
 class cannon {
 public:
     enum class cannon_states: uint8_t {
-        ESTOPPED = 0,  // When the cannon is in an emergency stop state, it will not respond to any commands
+        UNKNOWN = 0,
+        ESTOPPED = 254,  // When the cannon is in an emergency stop state, it will not respond to any commands
         // and cannot be released from this state until power is cycled.
         IDLE = 1, // When the cannon has no pressure and is not waiting for anything
         WAITING_FOR_PRESSURE = 2, // When the cannon is waiting for the air source to be available
@@ -55,6 +56,7 @@ public:
         FILL = 4, // Fill the cannon
         ARM = 5, // Arm the cannon
         DISARM = 6, // Disarm the cannon
+        IDLE = 7, // Set the cannon to idle
     };
 
     void set_pressure_cb(const std_msgs::Float32 &msg);
