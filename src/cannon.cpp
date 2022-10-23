@@ -176,3 +176,9 @@ void cannon::set_state(cannon::cannon_states new_state) {
 
     this->state = new_state;
 }
+
+void cannon::clear_estop() {
+    this->state = cannon_states::IDLE;
+    this->set_state(cannon_states::IDLE);
+
+}

@@ -148,6 +148,7 @@ public:
 
     void fire();
 
+    void clear_estop();
 
 };
 

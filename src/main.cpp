@@ -36,13 +36,21 @@ ros::Publisher angle_pub = ros::Publisher("cannon/angle", &angle_msg);
  * @param req The request message, which is empty
  * @param res The response message, which is empty
  */
-//void fire_cb(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res) {
-//    for (auto &cannon : cannons) {
-//        cannon->fire();
-//    }
-//}
-//
-//ros::ServiceServer<std_srvs::Empty::Request, std_srvs::Empty::Response> fire_srv("cannons/fire", &fire_cb);
+void fire_cb(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res) {
+    for (auto &cannon : cannons) {
+        cannon->fire();
+    }
+}
+
+void clear_estop_cb(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res) {
+    for (auto &cannon : cannons) {
+        cannon->clear_estop();
+    }
+}
+
+ros::ServiceServer<std_srvs::EmptyRequest, std_srvs::EmptyResponse> fire_srv("can/fire", &fire_cb);
+ros::ServiceServer<std_srvs::EmptyRequest, std_srvs::EmptyResponse> clear_estop_srv("/can/estop/clear",
+                                                                                    &clear_estop_cb);
 
 // rosrun rosserial_python serial_node.py _port:=/dev/ttyACM0
 
@@ -64,7 +72,8 @@ void setup() {
     node_handle.initNode();
     node_handle.advertise(solenoid_pub);
     node_handle.advertise(angle_pub);
-//    node_handle.advertiseService(fire_srv);
+    node_handle.advertiseService(fire_srv);
+    node_handle.advertiseService(clear_estop_srv);
     node_handle.setSpinTimeout(50);
 
 }
