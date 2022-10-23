@@ -6,12 +6,12 @@
 
 //#define USE_USBCON
 
-#define SUPPLY_SOLENOID_PIN 2
-#define VENT_SOLENOID_PIN 3
-#define TANK_0_FILL_SOLENOID_PIN 4
-#define TANK_1_FILL_SOLENOID_PIN 5
-#define TANK_0_FIRE_SOLENOID_PIN 6
-#define TANK_1_FIRE_SOLENOID_PIN 7
+#define SUPPLY_SOLENOID_PIN 22
+#define VENT_SOLENOID_PIN 24
+#define TANK_0_FILL_SOLENOID_PIN 30
+#define TANK_1_FILL_SOLENOID_PIN 32
+#define TANK_0_FIRE_SOLENOID_PIN 34
+#define TANK_1_FIRE_SOLENOID_PIN 36
 #define TANK_0_PRESSURE_SENSOR_PIN A0
 #define TANK_1_PRESSURE_SENSOR_PIN A1
 #define ANGLE_SENSOR_PIN A2
@@ -52,7 +52,8 @@ void setup() {
                                  TANK_0_FIRE_SOLENOID_PIN, TANK_0_PRESSURE_SENSOR_PIN,
                                  "can0/set_pressure", "can0/set_state",
                                  "can0/state", "can0/pressure");
-    cannon2 = new cannon(5, 6, 7, 8,
+    cannon2 = new cannon(5, TANK_1_FILL_SOLENOID_PIN,
+                         TANK_1_FIRE_SOLENOID_PIN,TANK_1_PRESSURE_SENSOR_PIN,
                                  "can1/set_pressure", "can1/set_state",
                                  "can1/state", "can1/pressure");
     cannons[0] = cannon1;

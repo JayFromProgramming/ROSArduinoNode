@@ -29,15 +29,20 @@ void cannon::initiate_vent(){
 
 void cannon::read_pressure(){
     float raw_voltage = analogRead(this->in_sensor_pin);
+    float voltage = raw_voltage * 5.0 / 1024.0;
+
+
 
     // If the voltage is below .5V, the sensor is not connected
-    if (raw_voltage < 500) {
+    if (voltage < 0.5) {
+        // This means the sensor is not connected
         this->set_state(cannon_states::ESTOPPED);
         this->pressure = -1.0;
         return;
     }
 
-    this->pressure = (raw_voltage / 1024.0f) * 5.0;
+    // Pressure values are mapped linearly to voltage values from 0.5 to 4.5 volts (0 to 150 psi)
+    this->pressure = (voltage - 0.5) * 150.0 / 4.0;
 }
 
 void cannon::publish_state(){
@@ -132,6 +137,8 @@ void cannon::update() {
             if(this->shot_timer < millis()){
                 this->set_state(cannon_states::IDLE);
             }
+            break;
+        case cannon_states::UNKNOWN:
             break;
     }
 }
