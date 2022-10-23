@@ -9,6 +9,7 @@
 
 
 void cannon::init(ros::NodeHandle *node_ptr) {
+    this->nodeHandler = node_ptr;
     node_ptr->advertise(this->state_pub_);
     node_ptr->advertise(this->pressure_pub_);
     node_ptr->subscribe(this->set_pressure_sub_);
@@ -20,18 +21,20 @@ void cannon::set_pressure_cb(const std_msgs::Float32 &msg) {
     if (new_pressure > 0 && new_pressure < 100) {
         this->set_pressure = new_pressure;
     }
+    String log_msg = "Set pressure to " + String(this->set_pressure);
+    this->nodeHandler->loginfo(log_msg.c_str());
 }
 
 void cannon::initiate_vent(){
     digitalWrite(this->in_solenoid_pin, HIGH);
     this->state = cannon_states::VENTING;
+    String msg = "Cannon " + String(this->id) + " is venting";
+    this->nodeHandler->loginfo(msg.c_str());
 }
 
 void cannon::read_pressure(){
     float raw_voltage = analogRead(this->in_sensor_pin);
     float voltage = raw_voltage * 5.0 / 1024.0;
-
-
 
     // If the voltage is below .5V, the sensor is not connected
     if (voltage < 0.5) {
@@ -67,6 +70,8 @@ void cannon::set_state_cb(const std_msgs::UInt8 &msg) {
 
     // If the cannon has not been cleared, do not accept another message
     if (action != cannon_actions::CLEAR && !this->input_cleared) {
+        String log_msg = "Cannon " + String(this->id) + " is not cleared, ignoring message";
+        this->nodeHandler->logwarn(log_msg.c_str());
         return;
     }
     if (this->state == cannon_states::ESTOPPED) return; // If the cannon is estopped, do not accept any messages
@@ -95,6 +100,8 @@ void cannon::set_state_cb(const std_msgs::UInt8 &msg) {
             break;
     }
     this->input_cleared = false; // Reset the input cleared flag
+    String log_msg = "Cannon " + String(this->id) + " set to state " + String(static_cast<int>(this->state));
+    this->nodeHandler->loginfo(log_msg.c_str());
 }
 
 bool cannon::needs_air() {
@@ -117,6 +124,9 @@ void cannon::update() {
     switch(this->state){
         case cannon_states::ESTOPPED:
         case cannon_states::VENTING:
+            if (this->pressure < 5){
+                this->set_state(cannon_states::IDLE);
+            }
             break;
         case cannon_states::IDLE:
             if (this->in_auto) this->state = cannon_states::WAITING_FOR_PRESSURE;
@@ -151,6 +161,9 @@ void cannon::fire() {
     if (this->state != cannon_states::ARMED) return;
     this->state = cannon_states::FIRING;
     digitalWrite(this->shot_solenoid_pin, HIGH);
+
+    String log_msg = "Cannon " + String(this->id) + " fired";
+    this->nodeHandler->loginfo(log_msg.c_str());
 }
 
 void cannon::set_state(cannon::cannon_states new_state) {
@@ -170,6 +183,10 @@ void cannon::set_state(cannon::cannon_states new_state) {
             digitalWrite(this->in_solenoid_pin, LOW);
             digitalWrite(this->shot_solenoid_pin, LOW);
             break;
+        case cannon_states::IDLE:
+            digitalWrite(this->in_solenoid_pin, LOW);
+            digitalWrite(this->shot_solenoid_pin, LOW);
+            break;
         default:
             break;
     }
@@ -181,4 +198,6 @@ void cannon::clear_estop() {
     this->state = cannon_states::IDLE;
     this->set_state(cannon_states::IDLE);
 
+    String log_msg = "Cannon " + String(this->id) + " cleared estop";
+    this->nodeHandler->loginfo(log_msg.c_str());
 }

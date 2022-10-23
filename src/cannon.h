@@ -67,6 +67,8 @@ private:
 
     uint8_t id{};
 
+    ros::NodeHandle *nodeHandler = nullptr;
+
     std_msgs::UInt8 state_msg;  // The message to publish the state of the cannon
 //        ros::Publisher state_pub = ros::Publisher("state", &state_msg);  // The publisher for the state of the cannon
     ros::Publisher state_pub_;  // The publisher for the state of the cannon

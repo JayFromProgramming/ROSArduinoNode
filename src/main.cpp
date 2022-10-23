@@ -56,11 +56,11 @@ ros::ServiceServer<std_srvs::EmptyRequest, std_srvs::EmptyResponse> clear_estop_
 
 void setup() {
 // write your initialization code here
-    cannon1 = new cannon(1, TANK_0_FILL_SOLENOID_PIN,
+    cannon1 = new cannon(0, TANK_0_FILL_SOLENOID_PIN,
                                  TANK_0_FIRE_SOLENOID_PIN, TANK_0_PRESSURE_SENSOR_PIN,
                                  "can0/set_pressure", "can0/set_state",
                                  "can0/state", "can0/pressure");
-    cannon2 = new cannon(5, TANK_1_FILL_SOLENOID_PIN,
+    cannon2 = new cannon(1, TANK_1_FILL_SOLENOID_PIN,
                          TANK_1_FIRE_SOLENOID_PIN,TANK_1_PRESSURE_SENSOR_PIN,
                                  "can1/set_pressure", "can1/set_state",
                                  "can1/state", "can1/pressure");
