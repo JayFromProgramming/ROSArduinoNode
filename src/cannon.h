@@ -120,7 +120,7 @@ public:
             this->input_cleared = true;
             pinMode(in_solenoid_pin, OUTPUT);
             pinMode(shot_solenoid_pin, OUTPUT);
-            pinMode(in_sensor_pin, INPUT);
+            pinMode(in_sensor_pin, INPUT_PULLUP);
     }
 
     void init(ros::NodeHandle *node_ptr);

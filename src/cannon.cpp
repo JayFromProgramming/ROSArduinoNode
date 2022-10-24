@@ -37,10 +37,10 @@ void cannon::read_pressure(){
     float voltage = raw_voltage * 5.0 / 1024.0;
 
     // If the voltage is below .5V, the sensor is not connected
-    if (voltage < 0.5) {
+    if (voltage < 0.5 || voltage > 4.5) {
         // This means the sensor is not connected
-        this->set_state(cannon_states::ESTOPPED);
-        this->pressure = -1.0;
+//        this->set_state(cannon_states::ESTOPPED);
+//        this->pressure = -1.0;
         return;
     }
 
@@ -76,9 +76,13 @@ void cannon::set_state_cb(const std_msgs::UInt8 &msg) {
     }
     if (this->state == cannon_states::ESTOPPED) return; // If the cannon is estopped, do not accept any messages
     switch (action) {
+        case cannon_actions::IDLE:
+            this->set_state(cannon_states::IDLE);
+            this->in_auto = false;
+            break;
         case cannon_actions::CLEAR:
             this->input_cleared = true;
-            break;
+            return;
         case cannon_actions::VENT:
             this->set_state(cannon_states::VENTING);
             break;
@@ -100,7 +104,7 @@ void cannon::set_state_cb(const std_msgs::UInt8 &msg) {
             break;
     }
     this->input_cleared = false; // Reset the input cleared flag
-    String log_msg = "Cannon " + String(this->id) + " set to state " + String(static_cast<int>(this->state));
+    String log_msg = "Cannon " + String(this->id) + " received action " + String(static_cast<int>(action));
     this->nodeHandler->loginfo(log_msg.c_str());
 }
 
@@ -170,19 +174,19 @@ void cannon::set_state(cannon::cannon_states new_state) {
     if (cannon_states::ESTOPPED == this->state) return;
 
     // Open the fill valve
-
+    String estop_msg = "Cannon " + String(this->id) + " estopped";
     switch (new_state){
         case cannon_states::ESTOPPED:
+            this->nodeHandler->logwarn(estop_msg.c_str());
         case cannon_states::VENTING:
             this->initiate_vent();
             break;
         case cannon_states::PRESSURIZING:
             digitalWrite(this->in_solenoid_pin, HIGH);
-            break;
-        case cannon_states::ARMED:
-            digitalWrite(this->in_solenoid_pin, LOW);
             digitalWrite(this->shot_solenoid_pin, LOW);
             break;
+        case cannon_states::READY:
+        case cannon_states::ARMED:
         case cannon_states::IDLE:
             digitalWrite(this->in_solenoid_pin, LOW);
             digitalWrite(this->shot_solenoid_pin, LOW);
@@ -191,6 +195,8 @@ void cannon::set_state(cannon::cannon_states new_state) {
             break;
     }
 
+    String log_msg = "Cannon " + String(this->id) + " changed state from " +
+            String(static_cast<int>(this->state)) + " to " + String(static_cast<int>(new_state));
     this->state = new_state;
 }
 
