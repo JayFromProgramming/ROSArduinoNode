@@ -59,11 +59,11 @@ void setup() {
     cannon1 = new cannon(0, TANK_0_FILL_SOLENOID_PIN,
                                  TANK_0_FIRE_SOLENOID_PIN, TANK_0_PRESSURE_SENSOR_PIN,
                                  "can0/set_pressure", "can0/set_state",
-                                 "can0/state", "can0/pressure");
+                                 "can0/state", "can0/pressure", "can0/auto");
     cannon2 = new cannon(1, TANK_1_FILL_SOLENOID_PIN,
                          TANK_1_FIRE_SOLENOID_PIN,TANK_1_PRESSURE_SENSOR_PIN,
                                  "can1/set_pressure", "can1/set_state",
-                                 "can1/state", "can1/pressure");
+                                 "can1/state", "can1/pressure", "can1/auto");
     cannons[0] = cannon1;
     cannons[1] = cannon2;
     cannon1->init(&node_handle);
@@ -158,7 +158,7 @@ void loop() {
     }
 
     // Toggle the on-board LED every loop to indicate that the board is running
-    digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+//    digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
 
 
     int spinCode = node_handle.spinOnce(); // Check ROSCore for new messages (Timeout of 50ms)

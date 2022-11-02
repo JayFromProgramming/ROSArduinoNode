@@ -28,6 +28,8 @@
 #include "../.pio/libdeps/megaatmega2560/Rosserial Arduino Library/src/ros/publisher.h"
 #include "../.pio/libdeps/megaatmega2560/Rosserial Arduino Library/src/ros/subscriber.h"
 #include "../.pio/libdeps/megaatmega2560/Rosserial Arduino Library/src/ros/service_server.h"
+#include "../.pio/libdeps/megaatmega2560/Rosserial Arduino Library/src/std_msgs/Bool.h"
+
 #endif
 
 using rosserial_arduino::Test;
@@ -76,6 +78,9 @@ private:
     std_msgs::Float32 pressure_msg;  // The message to publish the pressure of the cannon
     ros::Publisher pressure_pub_;
 
+    std_msgs::Bool auto_msg;  // The message to publish the auto state of the cannon
+    ros::Publisher auto_pub_;
+
     // Declare tuning parameters
     float max_pressure{110.0f};  // The maximum pressure the cannon can reach
     float min_pressure{0.0f};  // The minimum pressure the cannon can reach
@@ -104,18 +109,20 @@ public:
 
     cannon(uint8_t id, uint8_t in_solenoid_pin,
            uint8_t shot_solenoid_pin, uint8_t in_sensor_pin,
-           const char* pressure_name, const char* state_name, const char* set_pressure_name, const char* set_state_name):
+           const char* pressure_name, const char* state_name, const char* set_pressure_name, const char* set_state_name,
+           const char* auto_name):
             set_pressure_sub_(pressure_name, &cannon::set_pressure_cb, this),
             set_state_sub_(state_name, &cannon::set_state_cb, this),
             state_pub_(set_state_name, &state_msg),
-            pressure_pub_(set_pressure_name, &pressure_msg){
+            pressure_pub_(set_pressure_name, &pressure_msg),
+            auto_pub_(auto_name, &auto_msg){
             this->id = id;
             this->in_solenoid_pin = in_solenoid_pin;
             this->shot_solenoid_pin = shot_solenoid_pin;
             this->in_sensor_pin = in_sensor_pin;
             this->pressure = 0;
             this->set_pressure = 45.0;
-            this->state = cannon_states::IDLE;
+            this->set_state(cannon_states::IDLE);
             this->in_auto = false;
             this->input_cleared = true;
             pinMode(in_solenoid_pin, OUTPUT);

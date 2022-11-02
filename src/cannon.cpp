@@ -12,6 +12,7 @@ void cannon::init(ros::NodeHandle *node_ptr) {
     this->nodeHandler = node_ptr;
     node_ptr->advertise(this->state_pub_);
     node_ptr->advertise(this->pressure_pub_);
+    node_ptr->advertise(this->auto_pub_);
     node_ptr->subscribe(this->set_pressure_sub_);
     node_ptr->subscribe(this->set_state_sub_);
 }
@@ -53,6 +54,8 @@ void cannon::publish_state(){
     this->state_pub_.publish(&this->state_msg);
     this->pressure_msg.data = this->pressure;
     this->pressure_pub_.publish(&this->pressure_msg);
+    this->auto_msg.data = static_cast<boolean>(this->in_auto);
+    this->auto_pub_.publish(&this->auto_msg);
 }
 
 
@@ -77,8 +80,8 @@ void cannon::set_state_cb(const std_msgs::UInt8 &msg) {
     if (this->state == cannon_states::ESTOPPED) return; // If the cannon is estopped, do not accept any messages
     switch (action) {
         case cannon_actions::IDLE:
-            this->set_state(cannon_states::IDLE);
             this->in_auto = false;
+            this->set_state(cannon_states::IDLE);
             break;
         case cannon_actions::CLEAR:
             this->input_cleared = true;
@@ -87,7 +90,7 @@ void cannon::set_state_cb(const std_msgs::UInt8 &msg) {
             this->set_state(cannon_states::VENTING);
             break;
         case cannon_actions::FILL:
-            this->set_state(cannon_states::PRESSURIZING);
+            this->set_state(cannon_states::WAITING_FOR_PRESSURE);
             break;
         case cannon_actions::SET_AUTO:
             this->in_auto = true;
@@ -179,6 +182,7 @@ void cannon::set_state(cannon::cannon_states new_state) {
         case cannon_states::ESTOPPED:
             this->nodeHandler->logwarn(estop_msg.c_str());
         case cannon_states::VENTING:
+            this->in_auto = false;
             this->initiate_vent();
             break;
         case cannon_states::PRESSURIZING:
