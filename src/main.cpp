@@ -6,12 +6,12 @@
 
 //#define USE_USBCON
 
-#define SUPPLY_SOLENOID_PIN 2
-#define VENT_SOLENOID_PIN 3
-#define TANK_0_FILL_SOLENOID_PIN 4
-#define TANK_1_FILL_SOLENOID_PIN 5
-#define TANK_0_FIRE_SOLENOID_PIN 6
-#define TANK_1_FIRE_SOLENOID_PIN 7
+#define SUPPLY_SOLENOID_PIN 7
+#define VENT_SOLENOID_PIN 2
+#define TANK_0_FILL_SOLENOID_PIN 6
+#define TANK_1_FILL_SOLENOID_PIN 3
+#define TANK_0_FIRE_SOLENOID_PIN 8
+#define TANK_1_FIRE_SOLENOID_PIN 9
 #define TANK_0_PRESSURE_SENSOR_PIN A0
 #define TANK_1_PRESSURE_SENSOR_PIN A1
 #define ANGLE_SENSOR_PIN A2
@@ -56,6 +56,7 @@ ros::ServiceServer<std_srvs::EmptyRequest, std_srvs::EmptyResponse> clear_estop_
 
 void setup() {
 // write your initialization code here
+    node_handle.getHardware()->setBaud(115200);
     cannon1 = new cannon(0, TANK_0_FILL_SOLENOID_PIN,
                                  TANK_0_FIRE_SOLENOID_PIN, TANK_0_PRESSURE_SENSOR_PIN,
                                  "can0/set_pressure", "can0/set_state",
@@ -192,4 +193,8 @@ void loop() {
     while (millis() - now < 50) {
         delay(1);
     }
+    // Check to see if the send buffer is not empty, if so, send the data
+//    if (node_handle.getSendBufferSize() > 0) {
+//        node_handle.send();
+//    }
 }

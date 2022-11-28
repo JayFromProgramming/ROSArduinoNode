@@ -10,9 +10,6 @@
 
 void cannon::init(ros::NodeHandle *node_ptr) {
 
-    digitalWrite(in_solenoid_pin, HIGH);
-//    digitalWrite(shot_solenoid_pin, HIGH);
-
     this->nodeHandler = node_ptr;
     node_ptr->advertise(this->state_pub_);
     node_ptr->advertise(this->pressure_pub_);
@@ -20,8 +17,6 @@ void cannon::init(ros::NodeHandle *node_ptr) {
     node_ptr->subscribe(this->set_pressure_sub_);
     node_ptr->subscribe(this->set_state_sub_);
 
-    delay(250);
-    digitalWrite(in_solenoid_pin, LOW);
 }
 
 void cannon::set_pressure_cb(const std_msgs::Float32 &msg) {
@@ -160,6 +155,8 @@ void cannon::update() {
         case cannon_states::FIRING:
             if(this->shot_timer < millis()){
                 this->set_state(cannon_states::IDLE);
+                String log_msg = "Cannon " + String(this->id) + " finished firing";
+                this->nodeHandler->loginfo(log_msg.c_str());
             }
             break;
         case cannon_states::UNKNOWN:
@@ -173,10 +170,10 @@ cannon::cannon_states cannon::get_state() {
 
 void cannon::fire() {
     if (this->state != cannon_states::ARMED) return;
+    String log_msg = "Cannon " + String(this->id) + " firing...";
     this->state = cannon_states::FIRING;
+    this->shot_timer = millis() + 250;
     digitalWrite(this->shot_solenoid_pin, HIGH);
-
-    String log_msg = "Cannon " + String(this->id) + " fired";
     this->nodeHandler->loginfo(log_msg.c_str());
 }
 
