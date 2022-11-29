@@ -9,14 +9,12 @@
 
 
 void cannon::init(ros::NodeHandle *node_ptr) {
-
     this->nodeHandler = node_ptr;
     node_ptr->advertise(this->state_pub_);
     node_ptr->advertise(this->pressure_pub_);
     node_ptr->advertise(this->auto_pub_);
     node_ptr->subscribe(this->set_pressure_sub_);
     node_ptr->subscribe(this->set_state_sub_);
-
 }
 
 void cannon::set_pressure_cb(const std_msgs::Float32 &msg) {
