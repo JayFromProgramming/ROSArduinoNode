@@ -84,7 +84,7 @@ private:
     // Declare tuning parameters
     float max_pressure{110.0f};  // The maximum pressure the cannon can reach
     float min_pressure{0.0f};  // The minimum pressure the cannon can reach
-    float pressure_deadband{5.0f};  // The threshold for the pressure to be considered "stable"
+    float pressure_deadband{2.5f};  // The threshold for the pressure to be considered "stable"
 
     // Declare the state variables
     float pressure;  // The current pressure of the cannon

@@ -101,12 +101,12 @@ void cannon::set_state_cb(const std_msgs::UInt8 &msg) {
 
 bool cannon::needs_air() {
     if (this->filled) {
-        if (this->pressure < this->set_pressure + this->pressure_deadband){
+        if (this->pressure < this->set_pressure - this->pressure_deadband){
             this->filled = false;
             return true;
         } else return false;
     } else{
-        if (this->pressure > this->set_pressure - this->pressure_deadband){
+        if (this->pressure > this->set_pressure + this->pressure_deadband){
             this->filled = true;
             return false;
         } else return true;
