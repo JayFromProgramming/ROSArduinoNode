@@ -27,26 +27,14 @@ void cannon::set_pressure_cb(const std_msgs::Float32 &msg) {
 }
 
 void cannon::initiate_vent(){
-    digitalWrite(this->in_solenoid_pin, HIGH);
+    digitalWrite(this->in_solenoid_pin, LOW);
     this->state = cannon_states::VENTING;
     String msg = "Cannon " + String(this->id) + " is venting";
     this->nodeHandler->loginfo(msg.c_str());
 }
 
-void cannon::read_pressure(){
-    float raw_voltage = analogRead(this->in_sensor_pin);
-    float voltage = raw_voltage * 5.0 / 1024.0;
-
-    // If the voltage is below .5V, the sensor is not connected
-    if (voltage < 0.5 || voltage > 4.5) {
-        // This means the sensor is not connected
-//        this->set_state(cannon_states::ESTOPPED);
-//        this->pressure = -1.0;
-        return;
-    }
-
-    // Pressure values are mapped linearly to voltage values from 0.5 to 4.5 volts (0 to 150 psi)
-    this->pressure = ((voltage - 0.5f) * 150.0f / 4.0f) - 30.0f;
+void cannon::read_pressure(float pressure) {
+    this->pressure = pressure;
 }
 
 void cannon::publish_state(){
@@ -113,12 +101,12 @@ void cannon::set_state_cb(const std_msgs::UInt8 &msg) {
 
 bool cannon::needs_air() {
     if (this->filled) {
-        if (this->pressure < this->set_pressure - this->pressure_deadband){
+        if (this->pressure < this->set_pressure + this->pressure_deadband){
             this->filled = false;
             return true;
         } else return false;
     } else{
-        if (this->pressure > this->set_pressure){
+        if (this->pressure > this->set_pressure - this->pressure_deadband){
             this->filled = true;
             return false;
         } else return true;
@@ -188,14 +176,14 @@ void cannon::set_state(cannon::cannon_states new_state) {
             this->initiate_vent();
             break;
         case cannon_states::PRESSURIZING:
-            digitalWrite(this->in_solenoid_pin, HIGH);
+            digitalWrite(this->in_solenoid_pin, LOW);
             digitalWrite(this->shot_solenoid_pin, LOW);
             break;
         case cannon_states::WAITING_FOR_PRESSURE:
         case cannon_states::READY:
         case cannon_states::ARMED:
         case cannon_states::IDLE:
-            digitalWrite(this->in_solenoid_pin, LOW);
+            digitalWrite(this->in_solenoid_pin, HIGH);
             digitalWrite(this->shot_solenoid_pin, LOW);
             break;
         default:

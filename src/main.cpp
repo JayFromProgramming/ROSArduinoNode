@@ -2,14 +2,16 @@
 #include <cannon.h>
 #include <ros.h>
 #include <std_srvs/SetBool.h>
+#include <wiring_private.h>
+#include <USBAPI.h>
 #include "../.pio/libdeps/megaatmega2560/Rosserial Arduino Library/src/std_srvs/Empty.h"
 
 //#define USE_USBCON
 
-#define SUPPLY_SOLENOID_PIN 7
-#define VENT_SOLENOID_PIN 2
-#define TANK_0_FILL_SOLENOID_PIN 6
-#define TANK_1_FILL_SOLENOID_PIN 3
+#define SUPPLY_SOLENOID_PIN 6
+#define VENT_SOLENOID_PIN 3
+#define TANK_0_FILL_SOLENOID_PIN 2
+#define TANK_1_FILL_SOLENOID_PIN 7
 #define TANK_0_FIRE_SOLENOID_PIN 8
 #define TANK_1_FIRE_SOLENOID_PIN 9
 #define TANK_0_PRESSURE_SENSOR_PIN A0
@@ -68,9 +70,9 @@ ros::ServiceServer<std_srvs::EmptyRequest, std_srvs::EmptyResponse> clear_estop_
 void pinTest(){
     // Test each pin one at a time to determine which pin is causing the crashing problem
     for (int i = 2; i < 10; i++) {
-        if (i == 3) continue;
-        if (i == 6) continue;
-        if (i == 7) continue;
+//        if (i == 3) continue;
+//        if (i == 6) continue;
+//        if (i == 7) continue;
 
         pinMode(i, OUTPUT);
         digitalWrite(i, HIGH);
@@ -81,9 +83,9 @@ void pinTest(){
 
     // Turn all the pings on one at a time but then keep them on
     for (int i = 2; i < 10; i++) {
-        if (i == 3) continue;
-        if (i == 6) continue;
-        if (i == 7) continue;
+//        if (i == 3) continue;
+//        if (i == 6) continue;
+//        if (i == 7) continue;
         pinMode(i, OUTPUT);
         digitalWrite(i, HIGH);
 
@@ -92,9 +94,9 @@ void pinTest(){
 
     // Turn all the pins off
     for (int i = 2; i < 10; i++) {
-        if (i == 3) continue;
-        if (i == 6) continue;
-        if (i == 7) continue;
+//        if (i == 3) continue;
+//        if (i == 6) continue;
+//        if (i == 7) continue;
         pinMode(i, OUTPUT);
         digitalWrite(i, LOW);
 
@@ -113,6 +115,9 @@ void setup() {
 
 //    pinTest();
 
+    // Set the analog reference to 5v
+//    analogReference(EXTERNAL);
+
     cannon1 = new cannon(0, TANK_0_FILL_SOLENOID_PIN,
                                  TANK_0_FIRE_SOLENOID_PIN, TANK_0_PRESSURE_SENSOR_PIN,
                                  "can0/set_pressure", "can0/set_state",
@@ -126,6 +131,8 @@ void setup() {
     cannon1->init(&node_handle);
     cannon2->init(&node_handle);
 
+    Serial1.begin(9600);
+
     node_handle.initNode();
     node_handle.advertise(solenoid_pub);
     node_handle.advertise(angle_pub);
@@ -135,6 +142,9 @@ void setup() {
 
     pinMode(SUPPLY_SOLENOID_PIN, OUTPUT);
     pinMode(VENT_SOLENOID_PIN, OUTPUT);
+
+    pinMode(TANK_0_PRESSURE_SENSOR_PIN, INPUT);
+    pinMode(TANK_1_PRESSURE_SENSOR_PIN, INPUT);
 
     node_handle.requestSyncTime();
 
@@ -166,9 +176,30 @@ bool check_for_venting(){
     return false; // No cannons are venting
 }
 
+void read_pressure_from_serial(){
+    // Read the pressure from the serial port the pressure reader sends data when serial data is sent
+    while (Serial1.available() > 0) {
+        // Split the line into pressures
+        String line = Serial1.readStringUntil('\n');
+//        String log_msg = "Raw pressure data: ";
+//        log_msg += line;
+//        node_handle.loginfo(log_msg.c_str());
+        String pressure1 = line.substring(0, line.indexOf(','));
+        String pressure2 = line.substring(line.indexOf(',') + 1, line.length());
+        // Convert the pressures to floats
+        float pressure1_float = pressure1.toFloat();
+        float pressure2_float = pressure2.toFloat();
+        // Set the pressures
+        cannons[0]->read_pressure(pressure1_float);
+        cannons[1]->read_pressure(pressure2_float);
+//        String log_message = "Pressure 1: " + pressure1 + " Pressure 2: " + pressure2;
+//        node_handle.loginfo(log_message.c_str());
+    }
+}
+
 void cannon_state_loop(){
+    read_pressure_from_serial();
     for (auto &cannon: cannons){
-        cannon->read_pressure();
         cannon->update();
     }
     // Check if any cannons are venting, as this is the highest priority action it is checked first
@@ -202,8 +233,8 @@ void loop() {
     solenoid_msg.data = 0;
     solenoid_msg.data |= digitalRead(SUPPLY_SOLENOID_PIN) << 0;
     solenoid_msg.data |= digitalRead(VENT_SOLENOID_PIN) << 1;
-    solenoid_msg.data |= digitalRead(TANK_0_FILL_SOLENOID_PIN) << 2;
-    solenoid_msg.data |= digitalRead(TANK_1_FILL_SOLENOID_PIN) << 3;
+    solenoid_msg.data |= !digitalRead(TANK_0_FILL_SOLENOID_PIN) << 2;
+    solenoid_msg.data |= !digitalRead(TANK_1_FILL_SOLENOID_PIN) << 3;
     solenoid_msg.data |= digitalRead(TANK_0_FIRE_SOLENOID_PIN) << 4;
     solenoid_msg.data |= digitalRead(TANK_1_FIRE_SOLENOID_PIN) << 5;
     solenoid_pub.publish(&solenoid_msg);
