@@ -6,25 +6,25 @@
 
 //#define USE_USBCON
 
-//#define SUPPLY_SOLENOID_PIN 7
-//#define VENT_SOLENOID_PIN 2
-//#define TANK_0_FILL_SOLENOID_PIN 6
-//#define TANK_1_FILL_SOLENOID_PIN 3
-//#define TANK_0_FIRE_SOLENOID_PIN 8
-//#define TANK_1_FIRE_SOLENOID_PIN 9
-//#define TANK_0_PRESSURE_SENSOR_PIN A0
-//#define TANK_1_PRESSURE_SENSOR_PIN A1
-//#define ANGLE_SENSOR_PIN A2
-
-#define SUPPLY_SOLENOID_PIN 2
-#define VENT_SOLENOID_PIN 3
-#define TANK_0_FILL_SOLENOID_PIN 4
-#define TANK_1_FILL_SOLENOID_PIN 5
-#define TANK_0_FIRE_SOLENOID_PIN 6
-#define TANK_1_FIRE_SOLENOID_PIN 7
+#define SUPPLY_SOLENOID_PIN 7
+#define VENT_SOLENOID_PIN 2
+#define TANK_0_FILL_SOLENOID_PIN 6
+#define TANK_1_FILL_SOLENOID_PIN 3
+#define TANK_0_FIRE_SOLENOID_PIN 8
+#define TANK_1_FIRE_SOLENOID_PIN 9
 #define TANK_0_PRESSURE_SENSOR_PIN A0
 #define TANK_1_PRESSURE_SENSOR_PIN A1
 #define ANGLE_SENSOR_PIN A2
+
+//#define SUPPLY_SOLENOID_PIN 2
+//#define VENT_SOLENOID_PIN 3
+//#define TANK_0_FILL_SOLENOID_PIN 4
+//#define TANK_1_FILL_SOLENOID_PIN 5
+//#define TANK_0_FIRE_SOLENOID_PIN 6
+//#define TANK_1_FIRE_SOLENOID_PIN 7
+//#define TANK_0_PRESSURE_SENSOR_PIN A0
+//#define TANK_1_PRESSURE_SENSOR_PIN A1
+//#define ANGLE_SENSOR_PIN A2
 
 
 ros::NodeHandle node_handle;
@@ -68,16 +68,42 @@ ros::ServiceServer<std_srvs::EmptyRequest, std_srvs::EmptyResponse> clear_estop_
 void pinTest(){
     // Test each pin one at a time to determine which pin is causing the crashing problem
     for (int i = 2; i < 10; i++) {
+        if (i == 3) continue;
+        if (i == 6) continue;
+        if (i == 7) continue;
+
         pinMode(i, OUTPUT);
         digitalWrite(i, HIGH);
-        delay(1000);
+        delay(2500);
         digitalWrite(i, LOW);
+        delay(1500);
     }
 
     // Turn all the pings on one at a time but then keep them on
     for (int i = 2; i < 10; i++) {
+        if (i == 3) continue;
+        if (i == 6) continue;
+        if (i == 7) continue;
         pinMode(i, OUTPUT);
         digitalWrite(i, HIGH);
+
+        delay(1000);
+    }
+
+    // Turn all the pins off
+    for (int i = 2; i < 10; i++) {
+        if (i == 3) continue;
+        if (i == 6) continue;
+        if (i == 7) continue;
+        pinMode(i, OUTPUT);
+        digitalWrite(i, LOW);
+
+        delay(1000);
+    }
+
+    for (int i = 2; i < 10; i++) {
+        digitalWrite(i, HIGH);
+        delay(1000);
     }
 
 }
@@ -85,7 +111,7 @@ void pinTest(){
 void setup() {
 // write your initialization code here
 
-    pinTest();
+//    pinTest();
 
     cannon1 = new cannon(0, TANK_0_FILL_SOLENOID_PIN,
                                  TANK_0_FIRE_SOLENOID_PIN, TANK_0_PRESSURE_SENSOR_PIN,
@@ -107,6 +133,9 @@ void setup() {
     node_handle.advertiseService(clear_estop_srv);
     node_handle.setSpinTimeout(50);
 
+    pinMode(SUPPLY_SOLENOID_PIN, OUTPUT);
+    pinMode(VENT_SOLENOID_PIN, OUTPUT);
+
     node_handle.requestSyncTime();
 
 }
@@ -125,8 +154,7 @@ bool check_for_venting(){
         if (cannon->get_state() == cannon::cannon_states::VENTING ||
             cannon->get_state() == cannon::cannon_states::ESTOPPED) {
             for (auto &other_cannon : cannons) { // Stop all cannons from filling
-                if (other_cannon->get_state() != cannon::cannon_states::VENTING ||
-                    other_cannon->get_state() != cannon::cannon_states::ESTOPPED) {
+                if (other_cannon->get_state() == cannon::cannon_states::PRESSURIZING) {
                     other_cannon->set_state(cannon::cannon_states::WAITING_FOR_PRESSURE);
                 }
             }

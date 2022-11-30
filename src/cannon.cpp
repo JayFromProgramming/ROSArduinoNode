@@ -46,7 +46,7 @@ void cannon::read_pressure(){
     }
 
     // Pressure values are mapped linearly to voltage values from 0.5 to 4.5 volts (0 to 150 psi)
-    this->pressure = (voltage - 0.5) * 150.0 / 4.0;
+    this->pressure = ((voltage - 0.5f) * 150.0f / 4.0f) - 30.0f;
 }
 
 void cannon::publish_state(){
@@ -191,6 +191,7 @@ void cannon::set_state(cannon::cannon_states new_state) {
             digitalWrite(this->in_solenoid_pin, HIGH);
             digitalWrite(this->shot_solenoid_pin, LOW);
             break;
+        case cannon_states::WAITING_FOR_PRESSURE:
         case cannon_states::READY:
         case cannon_states::ARMED:
         case cannon_states::IDLE:
